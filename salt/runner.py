@@ -82,6 +82,8 @@ class RunnerClient(mixins.SyncClientMixin, mixins.AsyncClientMixin, object):
         arg, kwarg = salt.utils.args.parse_input(
                 low.pop('arg', []), condition=False)
         kwarg.update(low.pop('kwarg', {}))
+        # sometimes it is called kwargs
+        kwarg.update(low.pop('kwargs', {}))
 
         # If anything hasn't been pop()'ed out of low by this point it must be
         # an old-style kwarg.
