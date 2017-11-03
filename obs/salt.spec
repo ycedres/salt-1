@@ -21,7 +21,7 @@
 %else
 %bcond_with    systemd
 %endif
-%{!?python_sitelib: %global python_sitelib %(python -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
+%{!?python3_sitelib: %global python3_sitelib %(python3 -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 %if 0%{?suse_version} > 1110
 %bcond_without bash_completion
 %bcond_without fish_completion
@@ -36,154 +36,61 @@
 %bcond_with    builddocs
 
 Name:           salt
-Version:        2016.11.4
+Version:        2017.7.2
 Release:        0
 Summary:        A parallel remote execution system
 License:        Apache-2.0
 Group:          System/Management
 Url:            http://saltstack.org/
 # Git: https://github.com/openSUSE/salt.git
-Source0:        https://pypi.python.org/packages/88/3c/77de1e461882708a5a247bbc22f5b3df8a34affe69755ea9540473c9852a/salt-2016.11.4.tar.gz
+Source0:        salt-2017.7.2.tar.gz
 Source1:        README.SUSE
 Source2:        salt-tmpfiles.d
 Source3:        html.tar.bz2
 Source4:        update-documentation.sh
 Source5:        travis.yml
+Source6:        zyppnotify
 
-# PATCH-FIX-OPENSUSE use-forking-daemon.patch tserong@suse.com -- We don't have python-systemd, so notify can't work
-# We do not upstream this patch because this is something that we have to fix on our side
-Patch1:         tserong-suse.com-we-don-t-have-python-systemd-so-not.patch
-# PATCH-FIX-OPENSUSE use-salt-user-for-master.patch -- Run salt master as dedicated salt user
-# We do not upstream this patch because this is suse custom configuration
-# (see: https://trello.com/c/wh96lCD4/1528-get-rid-of-0003-check-if-byte-strings-are-properly-encoded-in-utf-8-patch-in-the-salt-package)
-Patch2:         run-salt-master-as-dedicated-salt-user.patch
-# PATCH-FIX-OPENSUSE https://github.com/saltstack/salt/pull/30424
-# We do not upstream this patch because it has been fixed upstream
-Patch3:         check-if-byte-strings-are-properly-encoded-in-utf-8.patch
-# PATCH-FIX-OPENSUSE prevent rebuilds in OBS
-# We do not upstream this patch because the issue is on our side
-Patch4:         do-not-generate-a-date-in-a-comment-to-prevent-rebui.patch
-# PATCH-FIX-OPENSUSE Generate events from the Salt minion,
-# We do not upstream this because this is for SUSE only (15.08.2016) if Zypper has been used outside the Salt infrastructure
-Patch5:         add-zypp-notify-plugin.patch
-# PATCH-FIX_OPENSUSE
-Patch6:         run-salt-api-as-user-salt-bsc-990029.patch
-# PATCH-FIX_OPENSUSE
-Patch7:         change-travis-configuration-file-to-use-salt-toaster.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/37856 (pending to include in 2016.11)
-Patch8:         setting-up-os-grains-for-sles-expanded-support-suse-.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/34165
-Patch9:         fix-salt-summary-to-count-not-responding-minions-cor.patch
-# PATCH-FIX_OPENSUSE
-Patch10:        avoid-failures-on-sles-12-sp2-because-of-new-systemd.patch
-# PATCH-FIX_OPENSUSE
-Patch11:        add-yum-plugin.patch
-# PATCH-FIX_OPENSUSE
-Patch12:        add-ssh-option-to-salt-ssh.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/38806
-Patch13:        add-a-salt-minion-service-control-file.patch
-# Description N/A
-Patch14:        add-options-for-dockerng.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/39762
-Patch15:        fix-regression-in-file.get_managed-add-unit-tests.patch
-# PATCH-FIX_OPENSUSE
-Patch16:        translate-variable-arguments-if-they-contain-hidden-.patch
-# PATCH-FIX_OPENSUSE
-Patch17:        special-salt-minion.service-file-for-rhel7.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/40266
-Patch18:        adding-support-for-installing-patches-in-yum-dnf-exe.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/40761
-Patch19:        search-the-entire-cache_dir-because-storage-paths-ch.patch
-# PATCH-FIX_OPENSUSE
-Patch20:        fixing-beacons.list-integration-test-failure.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/40817
-Patch21:        add-unit-test-for-skip-false-values-from-preferred_i.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/40852
-Patch22:        use-correct-grain-constants-for-timezone.patch
-# PATCH-FIX_OPENSUSE (upstream coming soon)
-Patch23:        fix-grain-for-os_family-on-suse-series.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/41269
-Patch24:        bugfix-unable-to-use-127-as-hostname.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/41336
-Patch25:        fix-setting-language-on-suse-systems.patch
-Patch26:        fix-os_family-case-in-unittest.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/41235
-Patch27:        rest_cherrypy-remove-sleep-call.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/40905
-Patch28:        fixed-issue-with-parsing-of-master-minion-returns-wh.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/41533
-Patch29:        clean-up-change-attribute-from-interface-dict.patch
-# PATCH-FIX_OPENSUSE
-Patch30:        fix-format-error-bsc-1043111.patch
-# PATCH-FIX_OPENSUSE (only applied for RHEL6 and SLES11)
-Patch31:        adding-salt-minion-watchdog-for-sysv-systems-rhel6-a.patch
-# PATCH-FIX_OPENSUSE (only applied for RHEL6 and SLES11)
-Patch32:        enables-salt-minion-watchdog-on-init.d-script-for-sy.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/42339
-Patch33:        bugfix-jobs-scheduled-to-run-at-a-future-time-stay-p.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/42944
-Patch34:        add-clean_id-function-to-salt.utils.verify.py.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/42986
-Patch35:        notify-systemd-synchronously-bsc-1053376.patch
-# PATCH-FIX_OPENSUSE https://github.com/openSUSE/salt/pull/37
-Patch36:        revert-we-don-t-have-python-systemd-so-notify-can-t-.patch
-# PATCH-FIX_OPENSUSE https://bugzilla.suse.com/1051948
-Patch37:        introducing-the-kubernetes-module.patch
-# PATCH-FIX_OPENSUSE https://bugzilla.suse.com/1052264
-Patch38:        list_pkgs-add-parameter-for-returned-attribute-selec.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/43441
-Patch39:        use-home-to-get-the-user-home-directory-instead-usin.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/43366
-#                    https://github.com/saltstack/salt/pull/43646/
-Patch40:        catching-error-when-pidfile-cannot-be-deleted.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/43235
-#                    https://github.com/saltstack/salt/pull/43724/
-Patch41:        fix-for-delete_deployment-in-kubernetes-module.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/43663
-Patch42:        multiprocessing-minion-option-documentation-fixes.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/43669
-Patch43:        introduce-process_count_max-minion-configuration-par.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/commit/0976f8f7131975a1ae29b2724069a301a870a46d
-#                    Missed follow-up commit
-Patch44:        escape-the-os.sep.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/44005
-Patch45:        bugfix-always-return-a-string-list-on-unknown-job-ta.patch
-# PATCH-FIX_UPSTREAM https://github.com/saltstack/salt/pull/44011
-Patch46:        security-fixes-cve-2017-14695-and-cve-2017-14696.patch
+Patch1:         list_pkgs-add-parameter-for-returned-attribute-selec.patch
+Patch2:         use-home-to-get-the-user-home-directory-instead-usin.patch
+Patch3:         multiprocessing-minion-option-documentation-fixes.patch
+Patch4:         introduce-process_count_max-minion-configuration-par.patch
+Patch5:         bugfix-always-return-a-string-list-on-unknown-job-ta.patch
+Patch6:         enable-with-salt-version-parameter-for-setup.py-scri.patch
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
+BuildRequires:  python-rpm-macros
 BuildRequires:  logrotate
-BuildRequires:  python
-BuildRequires:  python-devel
+BuildRequires:  python3
+BuildRequires:  python3-devel
 # requirements/base.txt
 %if 0%{?rhel}
-BuildRequires:  python-jinja2
+BuildRequires:  python3-jinja2
 %else
-BuildRequires:  python-Jinja2
+BuildRequires:  python3-Jinja2
 %endif
-BuildRequires:  python-futures >= 2.0
-BuildRequires:  python-markupsafe
-BuildRequires:  python-msgpack-python > 0.3
-BuildRequires:  python-psutil
-BuildRequires:  python-requests >= 1.0.0
-BuildRequires:  python-tornado >= 4.2.1
-BuildRequires:  python-yaml
+BuildRequires:  python3-MarkupSafe
+BuildRequires:  python3-msgpack-python > 0.3
+BuildRequires:  python3-psutil
+BuildRequires:  python3-requests >= 1.0.0
+BuildRequires:  python3-tornado >= 4.2.1
+BuildRequires:  python3-PyYAML
 
 # requirements/zeromq.txt
-BuildRequires:  python-pycrypto >= 2.6.1
-BuildRequires:  python-pyzmq >= 2.2.0
+BuildRequires:  python3-pycrypto >= 2.6.1
+BuildRequires:  python3-pyzmq >= 2.2.0
 %if %{with test}
 # requirements/dev_python27.txt
-BuildRequires:  python-boto >= 2.32.1
-BuildRequires:  python-mock
-BuildRequires:  python-moto >= 0.3.6
-BuildRequires:  python-pip
-BuildRequires:  python-salt-testing >= 2015.2.16
-BuildRequires:  python-unittest2
-BuildRequires:  python-xml
+BuildRequires:  python3-boto >= 2.32.1
+BuildRequires:  python3-mock
+BuildRequires:  python3-moto >= 0.3.6
+BuildRequires:  python3-pip
+BuildRequires:  python3-salt-testing >= 2015.2.16
+BuildRequires:  python3-unittest2
+BuildRequires:  python3-xml
 %endif
 %if %{with builddocs}
-BuildRequires:  python-sphinx
+BuildRequires:  python3-sphinx
 %endif
 %if 0%{?suse_version} > 1020
 BuildRequires:  fdupes
@@ -205,47 +112,46 @@ Requires(pre):  dbus
 
 Requires:       procps
 Requires:       logrotate
-Requires:       python
+Requires:       python3
 #
 %if ! 0%{?suse_version} > 1110
-Requires:       python-certifi
+Requires:       python3-certifi
 %endif
 # requirements/base.txt
 %if 0%{?rhel}
-Requires:  python-jinja2
+Requires:  python3-jinja2
 Requires:  yum
 %if 0%{?rhel} == 6
 Requires:  yum-plugin-security
 %endif
 %else
-Requires:  python-Jinja2
+Requires:  python3-Jinja2
 %endif
-Requires:       python-futures >= 2.0
-Requires:       python-markupsafe
-Requires:       python-msgpack-python > 0.3
-Requires:       python-psutil
-Requires:       python-requests >= 1.0.0
-Requires:       python-tornado >= 4.2.1
-Requires:       python-yaml
+Requires:       python3-MarkupSafe
+Requires:       python3-msgpack-python > 0.3
+Requires:       python3-psutil
+Requires:       python3-requests >= 1.0.0
+Requires:       python3-tornado >= 4.2.1
+Requires:       python3-PyYAML
 %if 0%{?suse_version}
 # required for zypper.py
-Requires:       rpm-python
+Requires:       python3-rpm
 Requires(pre):  libzypp(plugin:system) >= 0
-Requires:       zypp-plugin-python
+Requires:       python3-zypp-plugin
 # requirements/opt.txt (not all)
 # Suggests:     python-MySQL-python  ## Disabled for now, originally Recommended
-Suggests:       python-timelib
-Suggests:       python-gnupg
+Suggests:       python3-timelib
+Suggests:       python3-gnupg
 # requirements/zeromq.txt
 %endif
-Requires:       python-pycrypto >= 2.6.1
-Requires:       python-pyzmq >= 2.2.0
+Requires:       python3-pycrypto >= 2.6.1
+Requires:       python3-pyzmq >= 2.2.0
 #
 %if 0%{?suse_version}
 # python-xml is part of python-base in all rhel versions
-Requires:       python-xml
-Suggests:       python-Mako
-Recommends:     python-netaddr
+Requires:       python3-xml
+Suggests:       python3-Mako
+Recommends:     python3-netaddr
 %endif
 
 %if %{with systemd}
@@ -291,7 +197,7 @@ Summary:        The api for Salt a parallel remote execution system
 Group:          System/Management
 Requires:       %{name} = %{version}-%{release}
 Requires:       %{name}-master = %{version}-%{release}
-Requires:       python-CherryPy >= 3.2.2
+Requires:       python3-CherryPy >= 3.2.2
 
 %description api
 salt-api is a modular interface on top of Salt that can provide a variety of entry points into a running Salt system.
@@ -301,10 +207,10 @@ Summary:        Generic cloud provisioning tool for Saltstack
 Group:          System/Management
 Requires:       %{name} = %{version}-%{release}
 Requires:       %{name}-master = %{version}-%{release}
-Requires:       python-apache-libcloud
+Requires:       python3-apache-libcloud
 %if 0%{?suse_version}
-Recommends:     python-botocore
-Recommends:     python-netaddr
+Recommends:     python3-botocore
+Recommends:     python3-netaddr
 %endif
 
 %description cloud
@@ -327,7 +233,7 @@ Summary:        The management component of Saltstack with zmq protocol supporte
 Group:          System/Management
 Requires:       %{name} = %{version}-%{release}
 %if 0%{?suse_version}
-Recommends:     python-pygit2 >= 0.20.3
+Recommends:     python3-pygit2 >= 0.20.3
 %endif
 %ifarch %{ix86} x86_64
 %if 0%{?suse_version}
@@ -489,68 +395,16 @@ Zsh command line completion support for %{name}.
 %setup -q -n salt-%{version}
 cp %{S:1} .
 cp %{S:5} ./.travis.yml
+cp %{S:6} ./zyppnotify
 %patch1 -p1
-
-# Do not apply this patch on RHEL 6
-%if 0%{?rhel} > 6 || 0%{?suse_version}
 %patch2 -p1
-%endif
-
 %patch3 -p1
 %patch4 -p1
-
-# This is SUSE-only patch
-%if 0%{?suse_version}
 %patch5 -p1
-%endif
-
 %patch6 -p1
-%patch7 -p1
-%patch8 -p1
-%patch9 -p1
-%patch10 -p1
-%patch11 -p1
-%patch12 -p1
-%patch13 -p1
-%patch14 -p1
-%patch15 -p1
-%patch16 -p1
-%patch17 -p1
-%patch18 -p1
-%patch19 -p1
-%patch20 -p1
-%patch21 -p1
-%patch22 -p1
-%patch23 -p1
-%patch24 -p1
-%patch25 -p1
-%patch26 -p1
-%patch27 -p1
-%patch28 -p1
-%patch29 -p1
-%patch30 -p1
-
-%if 0%{?rhel} == 6 || 0%{?suse_version} == 1110
-%patch31 -p1
-%patch32 -p1
-%endif 
-%patch33 -p1
-%patch34 -p1
-%patch35 -p1
-%patch36 -p1
-%patch37 -p1
-%patch38 -p1
-%patch39 -p1
-%patch40 -p1
-%patch41 -p1
-%patch42 -p1
-%patch43 -p1
-%patch44 -p1
-%patch45 -p1
-%patch46 -p1
 
 %build
-%{__python} setup.py --salt-transport=both build
+%{__python3} setup.py --salt-transport=both build
 
 %if %{with docs} && %{without builddocs}
 # extract docs from the tarball
@@ -566,7 +420,7 @@ cd doc && make html && rm _build/html/.buildinfo && rm _build/html/_images/proxy
 %endif
 
 %install
-%{__python} setup.py --salt-transport=both install --prefix=%{_prefix} --root=%{buildroot}
+%{__python3} setup.py --salt-transport=both install --prefix=%{_prefix} --root=%{buildroot}
 ## create missing directories
 install -Dd -m 0750 %{buildroot}%{_sysconfdir}/salt/master.d
 install -Dd -m 0750 %{buildroot}%{_sysconfdir}/salt/minion.d
@@ -609,7 +463,7 @@ install -Dd -m 0750 %{buildroot}%{_sysconfdir}/salt/pki/minion
 ## Install Zypper plugins only on SUSE machines
 %if 0%{?suse_version}
 install -Dd -m 0750 %{buildroot}%{_prefix}/lib/zypp/plugins/commit
-%{__install} scripts/zypper/plugins/commit/zyppnotify %{buildroot}%{_prefix}/lib/zypp/plugins/commit/zyppnotify
+%{__install} zyppnotify %{buildroot}%{_prefix}/lib/zypp/plugins/commit/zyppnotify
 %endif
 
 # Install Yum plugins only on RH machines
@@ -685,12 +539,12 @@ install -Dpm 0644 pkg/fish-completions/* %{buildroot}%{fish_completions_dir}
 
 %if 0%{?suse_version} > 1020
 %fdupes %{buildroot}%{_docdir}
-%fdupes %{buildroot}%{python_sitelib}
+%fdupes %{buildroot}%{python3_sitelib}
 %endif
 
 %check
 %if %{with test}
-python setup.py test --runtests-opts=-u
+python3 setup.py test --runtests-opts=-u
 %endif
 
 %pre
@@ -1014,8 +868,8 @@ fi
 %config(noreplace) %attr(0640, root, salt) %{_sysconfdir}/salt/cloud.profiles
 %config(noreplace) %attr(0640, root, salt) %{_sysconfdir}/salt/cloud.providers
 %dir               %attr(0750, root, salt) %{_localstatedir}/cache/salt/cloud
-%{python_sitelib}/salt/cloud/deploy/bootstrap-salt.sh
-%attr(755,root,root)%{python_sitelib}/salt/cloud/deploy/bootstrap-salt.sh
+%{python3_sitelib}/salt/cloud/deploy/bootstrap-salt.sh
+%attr(755,root,root)%{python3_sitelib}/salt/cloud/deploy/bootstrap-salt.sh
 %{_mandir}/man1/salt-cloud.1.*
 
 %files ssh
@@ -1126,9 +980,9 @@ fi
 %{_mandir}/man1/salt-call.1.gz
 %{_mandir}/man1/spm.1.gz
 %config(noreplace) %{_sysconfdir}/logrotate.d/salt
-%{python_sitelib}/*
-%exclude %{python_sitelib}/salt/cloud/deploy/*.sh
-%attr(755,root,root)%{python_sitelib}/salt/cloud/deploy/*.sh
+%{python3_sitelib}/*
+%exclude %{python3_sitelib}/salt/cloud/deploy/*.sh
+%attr(755,root,root)%{python3_sitelib}/salt/cloud/deploy/*.sh
 %doc LICENSE AUTHORS README.rst HACKING.rst README.SUSE
 #
 %dir        %attr(0750, root, salt) %{_sysconfdir}/salt

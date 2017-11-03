@@ -1,3 +1,54 @@
+Fri Nov  9 10:22:08 UTC 2017 - mdinca@suse.de
+
+- Update to 2017.7.2
+  See https://docs.saltstack.com/en/latest/topics/releases/2017.7.2.html
+
+- Added:
+ * enable-with-salt-version-parameter-for-setup.py-scri.patch
+
+- Removed:
+ * add-a-salt-minion-service-control-file.patch
+ * add-clean_id-function-to-salt.utils.verify.py.patch
+ * add-options-for-dockerng.patch
+ * add-ssh-option-to-salt-ssh.patch
+ * add-unit-test-for-skip-false-values-from-preferred_i.patch
+ * add-yum-plugin.patch
+ * add-zypp-notify-plugin.patch
+ * adding-salt-minion-watchdog-for-sysv-systems-rhel6-a.patch
+ * adding-support-for-installing-patches-in-yum-dnf-exe.patch
+ * avoid-failures-on-sles-12-sp2-because-of-new-systemd.patch
+ * bugfix-jobs-scheduled-to-run-at-a-future-time-stay-p.patch
+ * bugfix-unable-to-use-127-as-hostname.patch
+ * catching-error-when-pidfile-cannot-be-deleted.patch
+ * change-travis-configuration-file-to-use-salt-toaster.patch
+ * check-if-byte-strings-are-properly-encoded-in-utf-8.patch
+ * clean-up-change-attribute-from-interface-dict.patch
+ * do-not-generate-a-date-in-a-comment-to-prevent-rebui.patch
+ * enables-salt-minion-watchdog-on-init.d-script-for-sy.patch
+ * escape-the-os.sep.patch
+ * fix-for-delete_deployment-in-kubernetes-module.patch
+ * fix-format-error-bsc-1043111.patch
+ * fix-grain-for-os_family-on-suse-series.patch
+ * fix-os_family-case-in-unittest.patch
+ * fix-regression-in-file.get_managed-add-unit-tests.patch
+ * fix-salt-summary-to-count-not-responding-minions-cor.patch
+ * fix-setting-language-on-suse-systems.patch
+ * fixed-issue-with-parsing-of-master-minion-returns-wh.patch
+ * fixing-beacons.list-integration-test-failure.patch
+ * introducing-the-kubernetes-module.patch
+ * notify-systemd-synchronously-bsc-1053376.patch
+ * rest_cherrypy-remove-sleep-call.patch
+ * revert-we-don-t-have-python-systemd-so-notify-can-t-.patch
+ * run-salt-api-as-user-salt-bsc-990029.patch
+ * run-salt-master-as-dedicated-salt-user.patch
+ * search-the-entire-cache_dir-because-storage-paths-ch.patch
+ * security-fixes-cve-2017-14695-and-cve-2017-14696.patch
+ * setting-up-os-grains-for-sles-expanded-support-suse-.patch
+ * special-salt-minion.service-file-for-rhel7.patch
+ * translate-variable-arguments-if-they-contain-hidden-.patch
+ * tserong-suse.com-we-don-t-have-python-systemd-so-not.patch
+ * use-correct-grain-constants-for-timezone.patch
+
 -------------------------------------------------------------------
 Wed Oct 11 12:47:37 UTC 2017 - jbreuer@suse.de
 
