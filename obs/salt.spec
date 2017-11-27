@@ -57,6 +57,8 @@ Patch3:         multiprocessing-minion-option-documentation-fixes.patch
 Patch4:         introduce-process_count_max-minion-configuration-par.patch
 Patch5:         bugfix-always-return-a-string-list-on-unknown-job-ta.patch
 Patch6:         enable-with-salt-version-parameter-for-setup.py-scri.patch
+Patch7:         run-salt-master-as-dedicated-salt-user.patch
+Patch8:         run-salt-api-as-user-salt-bsc-1064520.patch
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 BuildRequires:  python-rpm-macros
@@ -402,6 +404,8 @@ cp %{S:6} ./zyppnotify
 %patch4 -p1
 %patch5 -p1
 %patch6 -p1
+%patch7 -p1
+%patch8 -p1
 
 %build
 %{__python3} setup.py --salt-transport=both build

@@ -1,3 +1,13 @@
+Mon Nov 27 17:12:08 UTC 2017 - mdinca@suse.de
+
+- Run salt master as dedicated salt user
+- Run salt-api as user salt (bsc#1064520)
+
+- Added:
+ * run-salt-master-as-dedicated-salt-user.patch
+ * run-salt-api-as-user-salt-bsc-1064520.patch
+
+-------------------------------------------------------------------
 Fri Nov  9 10:22:08 UTC 2017 - mdinca@suse.de
 
 - Update to 2017.7.2
