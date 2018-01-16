@@ -80,6 +80,7 @@ def state(
         timeout=None,
         batch=None,
         queue=False,
+        metadata=None,
         orchestration_jid=None):
     '''
     Invoke a state run on a given target
@@ -227,6 +228,9 @@ def state(
     if test or __opts__.get('test'):
         cmd_kw['kwarg']['test'] = True
 
+    if metadata:
+        cmd_kw['kwarg']['metadata'] = metadata
+
     if pillar:
         cmd_kw['kwarg']['pillar'] = pillar
 
@@ -362,6 +366,7 @@ def function(
         arg=None,
         kwarg=None,
         timeout=None,
+        metadata=None,
         batch=None):
     '''
     Execute a single module function on a remote minion via salt or salt-ssh
@@ -429,6 +434,9 @@ def function(
     cmd_kw['ssh'] = ssh
     cmd_kw['expect_minions'] = expect_minions
     cmd_kw['_cmd_meta'] = True
+    if metadata:
+        cmd_kw['metadata'] = metadata
+
     fun = name
     if __opts__['test'] is True:
         func_ret['comment'] = (
