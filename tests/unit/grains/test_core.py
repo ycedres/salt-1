@@ -484,7 +484,7 @@ PATCHLEVEL = 3
                 with patch('salt.utils.network.ip_addrs6', MagicMock(return_value=['fe80::a8b2:93ff:fe00:0', 'fe80::a8b2:93ff:dead:beef'])):
                     with patch.object(socket, 'gethostbyaddr', side_effect=reverse_resolv_mock):
                         fqdns = core.fqdns()
-                        self.assertEqual(fqdns, ret)
+                        self.assertDictEqual(fqdns, ret)
 
 if __name__ == '__main__':
     from integration import run_tests
