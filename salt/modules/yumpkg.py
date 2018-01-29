@@ -605,7 +605,7 @@ def list_pkgs(versions_as_list=False, **kwargs):
 
     attr = kwargs.get('attr')
     if attr is not None:
-        attr = salt.utils.args.split_input(attr)
+        attr = salt.utils.split_input(attr)
 
     contextkey = 'pkg.list_pkgs'
 
