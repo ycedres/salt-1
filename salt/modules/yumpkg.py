@@ -154,9 +154,11 @@ def _call_yum(args, **kwargs):
     '''
     Call yum/dnf.
     '''
+    env = salt.utils.environment.get_module_environment(globals())
+    env['SALT_RUNNING'] = '1'
     params = {'output_loglevel': 'trace',
               'python_shell': False,
-              'env': salt.utils.environment.get_module_environment(globals())}
+              'env': env}
     params.update(kwargs)
     cmd = []
     if salt.utils.systemd.has_scope(__context__) and __salt__['config.get']('systemd.scope', True):
@@ -886,7 +888,8 @@ def list_repo_pkgs(*args, **kwargs):
     yum_version = None if _yum() != 'yum' else _LooseVersion(
                 __salt__['cmd.run'](
                     ['yum', '--version'],
-                    python_shell=False
+                    python_shell=False,
+                    env={"SALT_RUNNING": '1'}
                 ).splitlines()[0].strip()
             )
     # Really old version of yum; does not even have --showduplicates option
@@ -2296,7 +2299,8 @@ def list_holds(pattern=__HOLD_PATTERN, full=True):
     _check_versionlock()
 
     out = __salt__['cmd.run']([_yum(), 'versionlock', 'list'],
-                              python_shell=False)
+                              python_shell=False,
+                              env={"SALT_RUNNING": '1'})
     ret = []
     for line in salt.utils.itertools.split(out, '\n'):
         match = _get_hold(line, pattern=pattern, full=full)
@@ -2361,7 +2365,8 @@ def group_list():
     out = __salt__['cmd.run_stdout'](
         [_yum(), 'grouplist', 'hidden'],
         output_loglevel='trace',
-        python_shell=False
+        python_shell=False,
+        env={"SALT_RUNNING": '1'}
     )
     key = None
     for line in salt.utils.itertools.split(out, '\n'):
@@ -2428,7 +2433,8 @@ def group_info(name, expand=False):
     out = __salt__['cmd.run_stdout'](
         cmd,
         output_loglevel='trace',
-        python_shell=False
+        python_shell=False,
+        env={"SALT_RUNNING": '1'}
     )
 
     g_info = {}
@@ -3096,7 +3102,8 @@ def download(*packages):
     __salt__['cmd.run'](
         cmd,
         output_loglevel='trace',
-        python_shell=False
+        python_shell=False,
+        env={"SALT_RUNNING": '1'}
     )
     ret = {}
     for dld_result in os.listdir(CACHE_DIR):
@@ -3171,7 +3178,8 @@ def _get_patches(installed_only=False):
     cmd = [_yum(), '--quiet', 'updateinfo', 'list', 'all']
     ret = __salt__['cmd.run_stdout'](
         cmd,
-        python_shell=False
+        python_shell=False,
+        env={"SALT_RUNNING": '1'}
     )
     for line in salt.utils.itertools.split(ret, os.linesep):
         inst, advisory_id, sev, pkg = re.match(r'([i|\s]) ([^\s]+) +([^\s]+) +([^\s]+)',
