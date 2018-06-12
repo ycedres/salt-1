@@ -75,3 +75,46 @@ def config():
                 log.warning("Bad syntax in grains file! Skipping.")
                 return {}
     return {}
+
+
+def minion_capabilities():
+    '''
+    Return the minion capabilities defined on the Salt capabilities file
+    '''
+    if 'conf_file' not in __opts__:
+        return {}
+    if os.path.isdir(__opts__['conf_file']):
+        if salt.utils.platform.is_proxy():
+            gfn = os.path.join(
+                    __opts__['conf_file'],
+                    'proxy.d',
+                    __opts__['id'],
+                    '_salt_capabilities'
+                    )
+        else:
+            gfn = os.path.join(
+                    __opts__['conf_file'],
+                    '_salt_capabilities'
+                    )
+    else:
+        if salt.utils.platform.is_proxy():
+            gfn = os.path.join(
+                    os.path.dirname(__opts__['conf_file']),
+                    'proxy.d',
+                    __opts__['id'],
+                    '_salt_capabilities'
+                    )
+        else:
+            gfn = os.path.join(
+                    os.path.dirname(__opts__['conf_file']),
+                    '_salt_capabilities'
+                    )
+    if os.path.isfile(gfn):
+        log.debug('Loading Salt capabilities from %s', gfn)
+        with salt.utils.files.fopen(gfn, 'rb') as fp_:
+            try:
+                return salt.utils.data.decode(salt.utils.yaml.safe_load(fp_))
+            except Exception:
+                log.warning("Bad syntax in _minion_capabilities file! Skipping.")
+                return {}
+    return {}
