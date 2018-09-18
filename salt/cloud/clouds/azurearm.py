@@ -102,6 +102,7 @@ import logging
 import os
 import os.path
 import pprint
+import pkgutil
 import string
 import time
 
@@ -114,6 +115,7 @@ import salt.utils.cloud
 import salt.utils.files
 import salt.utils.stringutils
 import salt.utils.yaml
+from salt.ext import six
 import salt.version
 from salt.exceptions import (
     SaltCloudConfigError,
@@ -153,6 +155,11 @@ try:
         PublicIPAddress,
     )
     from msrestazure.azure_exceptions import CloudError
+    if pkgutil.find_loader('azure.multiapi'):
+        # use multiapi version if available
+        from azure.multiapi.storage.v2016_05_31 import CloudStorageAccount
+    else:
+        from azure.storage import CloudStorageAccount
     HAS_LIBS = True
 except ImportError:
     pass
