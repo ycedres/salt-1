@@ -57,6 +57,8 @@ import salt.utils.pkg.rpm
 import salt.utils.platform
 import salt.utils.stringutils
 import salt.utils.versions
+import salt.utils.pkg.rpm
+
 from salt.ext import six
 from salt.ext.six.moves import range
 
