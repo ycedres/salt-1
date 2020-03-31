@@ -1130,12 +1130,13 @@ class CoreGrainsTestCase(TestCase, LoaderModuleMockMixin):
                         mock_log.error.assert_not_called()
 
         mock_log = MagicMock()
-        with patch.object(socket, 'gethostbyaddr',
-                          side_effect=_gen_gethostbyaddr(-1)):
-            with patch('salt.grains.core.log', mock_log):
-                self.assertEqual(core.fqdns(), {'fqdns': []})
-                mock_log.debug.assert_not_called()
-                mock_log.error.assert_called_once()
+        with patch.dict(core.__salt__, {'network.fqdns': salt.modules.network.fqdns}):
+            with patch.object(socket, 'gethostbyaddr',
+                            side_effect=_gen_gethostbyaddr(-1)):
+                with patch('salt.grains.core.log', mock_log):
+                    self.assertEqual(core.fqdns(), {'fqdns': []})
+                    mock_log.debug.assert_not_called()
+                    mock_log.error.assert_called_once()
 
     @patch.object(salt.utils.platform, 'is_windows', MagicMock(return_value=False))
     @patch('salt.utils.network.ip_addrs', MagicMock(return_value=['1.2.3.4', '5.6.7.8']))
