@@ -1122,12 +1122,12 @@ class CoreGrainsTestCase(TestCase, LoaderModuleMockMixin):
 
         for errno in (0, core.HOST_NOT_FOUND, core.NO_DATA):
             mock_log = MagicMock()
-            with patch.object(socket, 'gethostbyaddr',
-                              side_effect=_gen_gethostbyaddr(errno)):
-                with patch('salt.grains.core.log', mock_log):
-                    self.assertEqual(core.fqdns(), {'fqdns': []})
-                    mock_log.debug.assert_called_once()
-                    mock_log.error.assert_not_called()
+            with patch.dict(core.__salt__, {'network.fqdns': salt.modules.network.fqdns}):
+                with patch.object(socket, 'gethostbyaddr',
+                                side_effect=_gen_gethostbyaddr(errno)):
+                    with patch('salt.grains.core.log', mock_log):
+                        self.assertEqual(core.fqdns(), {'fqdns': []})
+                        mock_log.error.assert_not_called()
 
         mock_log = MagicMock()
         with patch.object(socket, 'gethostbyaddr',
