@@ -177,6 +177,20 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
         return result
 
     @classmethod
+    def force_close_all_instances(cls):
+        """
+        Will force close all instances
+
+        ZMQ can hang on quit if left to deconstruct on its own.
+        This because is deconstructs out of order.
+
+        :return: None
+        """
+        for weak_dict in list(cls.instance_map.values()):
+            for instance in list(weak_dict.values()):
+                instance.close()
+
+    @classmethod
     def __key(cls, opts, **kwargs):
         return (opts['pki_dir'],     # where the keys are stored
                 opts['id'],          # minion ID
@@ -255,7 +269,7 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
             self._refcount = 1
         try:
             self.close()
-        except socket.error as exc:
+        except OSError as exc:
             if exc.errno != errno.EBADF:
                 # If its not a bad file descriptor error, raise
                 raise
@@ -310,8 +324,7 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
             aes = cipher.decrypt(ret['key'])
         pcrypt = salt.crypt.Crypticle(self.opts, aes)
         data = pcrypt.loads(ret[dictkey])
-        if six.PY3:
-            data = salt.transport.frame.decode_embedded_strs(data)
+        data = salt.transport.frame.decode_embedded_strs(data)
         raise salt.ext.tornado.gen.Return(data)
 
     @salt.ext.tornado.gen.coroutine
@@ -608,14 +621,21 @@ class ZeroMQReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin,
         self._start_zmq_monitor()
         self.workers = self.context.socket(zmq.DEALER)
 
-        if self.opts.get('ipc_mode', '') == 'tcp':
-            self.w_uri = 'tcp://127.0.0.1:{0}'.format(
-                self.opts.get('tcp_master_workers', 4515)
-                )
+        if self.opts["mworker_queue_niceness"] and not salt.utils.platform.is_windows():
+            log.info(
+                "setting mworker_queue niceness to %d",
+                self.opts["mworker_queue_niceness"],
+            )
+            os.nice(self.opts["mworker_queue_niceness"])
+
+        if self.opts.get("ipc_mode", "") == "tcp":
+            self.w_uri = "tcp://127.0.0.1:{}".format(
+                self.opts.get("tcp_master_workers", 4515)
+            )
         else:
-            self.w_uri = 'ipc://{0}'.format(
-                os.path.join(self.opts['sock_dir'], 'workers.ipc')
-                )
+            self.w_uri = "ipc://{}".format(
+                os.path.join(self.opts["sock_dir"], "workers.ipc")
+            )
 
         log.info('Setting up the master communication server')
         self.clients.bind(self.uri)
@@ -629,7 +649,7 @@ class ZeroMQReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin,
             except zmq.ZMQError as exc:
                 if exc.errno == errno.EINTR:
                     continue
-                six.reraise(*sys.exc_info())
+                raise
             except (KeyboardInterrupt, SystemExit):
                 break
 
@@ -954,7 +974,7 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                 except zmq.ZMQError as exc:
                     if exc.errno == errno.EINTR:
                         continue
-                    six.reraise(*sys.exc_info())
+                    raise
 
         except KeyboardInterrupt:
             log.trace('Publish daemon caught Keyboard interupt, tearing down')
@@ -1301,7 +1321,7 @@ class AsyncReqMessageClient(object):
         return future
 
 
-class ZeroMQSocketMonitor(object):
+class ZeroMQSocketMonitor:
     __EVENT_MAP = None
 
     def __init__(self, socket):

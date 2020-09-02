@@ -5,7 +5,6 @@ minion modules.
 '''
 
 # Import python libs
-from __future__ import absolute_import, print_function, unicode_literals
 
 import os
 import sys
@@ -20,6 +19,7 @@ import salt.output
 import salt.payload
 import salt.transport
 import salt.transport.client
+import salt.transport.zeromq
 import salt.utils.args
 import salt.utils.files
 import salt.utils.jid
@@ -39,6 +39,9 @@ from salt.exceptions import (
     CommandExecutionError,
     SaltInvocationError,
 )
+
+# Import 3rd-party libs
+from salt.log import LOG_LEVELS
 
 log = logging.getLogger(__name__)
 
@@ -86,14 +89,14 @@ class BaseCaller(object):
             else:
                 self.minion = salt.minion.SMinion(opts)
         except SaltClientError as exc:
-            raise SystemExit(six.text_type(exc))
+            raise SystemExit(str(exc))
 
     def print_docs(self):
         '''
         Pick up the documentation for all of the modules and print it out.
         '''
         docs = {}
-        for name, func in six.iteritems(self.minion.functions):
+        for name, func in self.minion.functions.items():
             if name not in docs:
                 if func.__doc__:
                     docs[name] = func.__doc__
@@ -145,160 +148,176 @@ class BaseCaller(object):
         '''
         Call the module
         '''
-        ret = {}
-        fun = self.opts['fun']
-        ret['jid'] = salt.utils.jid.gen_jid(self.opts)
-        proc_fn = os.path.join(
-            salt.minion.get_proc_dir(self.opts['cachedir']),
-            ret['jid']
-        )
-        if fun not in self.minion.functions:
-            docs = self.minion.functions['sys.doc']('{0}*'.format(fun))
-            if docs:
-                docs[fun] = self.minion.functions.missing_fun_string(fun)
-                ret['out'] = 'nested'
-                ret['return'] = docs
-                return ret
-            sys.stderr.write(self.minion.functions.missing_fun_string(fun))
-            mod_name = fun.split('.')[0]
-            if mod_name in self.minion.function_errors:
-                sys.stderr.write(' Possible reasons: {0}\n'.format(self.minion.function_errors[mod_name]))
-            else:
-                sys.stderr.write('\n')
-            sys.exit(-1)
-        metadata = self.opts.get('metadata')
-        if metadata is not None:
-            metadata = salt.utils.args.yamlify_arg(metadata)
         try:
-            sdata = {
-                'fun': fun,
-                'pid': os.getpid(),
-                'jid': ret['jid'],
-                'tgt': 'salt-call'}
-            if metadata is not None:
-                sdata['metadata'] = metadata
-            args, kwargs = salt.minion.load_args_and_kwargs(
-                self.minion.functions[fun],
-                salt.utils.args.parse_input(
-                    self.opts['arg'],
-                    no_parse=self.opts.get('no_parse', [])),
-                data=sdata)
-            try:
-                with salt.utils.files.fopen(proc_fn, 'w+b') as fp_:
-                    fp_.write(self.serial.dumps(sdata))
-            except NameError:
-                # Don't require msgpack with local
-                pass
-            except IOError:
-                sys.stderr.write(
-                    'Cannot write to process directory. '
-                    'Do you have permissions to '
-                    'write to {0} ?\n'.format(proc_fn))
-            func = self.minion.functions[fun]
-            data = {
-              'arg': args,
-              'fun': fun
-            }
-            data.update(kwargs)
-            executors = getattr(self.minion, 'module_executors', []) or \
-                        salt.utils.args.yamlify_arg(
-                            self.opts.get('module_executors', '[direct_call]')
+            ret = {}
+            fun = self.opts["fun"]
+            ret["jid"] = salt.utils.jid.gen_jid(self.opts)
+            proc_fn = os.path.join(
+                salt.minion.get_proc_dir(self.opts["cachedir"]), ret["jid"]
+            )
+            if fun not in self.minion.functions:
+                docs = self.minion.functions["sys.doc"]("{}*".format(fun))
+                if docs:
+                    docs[fun] = self.minion.functions.missing_fun_string(fun)
+                    ret["out"] = "nested"
+                    ret["return"] = docs
+                    return ret
+                sys.stderr.write(self.minion.functions.missing_fun_string(fun))
+                mod_name = fun.split(".")[0]
+                if mod_name in self.minion.function_errors:
+                    sys.stderr.write(
+                        " Possible reasons: {}\n".format(
+                            self.minion.function_errors[mod_name]
                         )
-            if self.opts.get('executor_opts', None):
-                data['executor_opts'] = salt.utils.args.yamlify_arg(
-                    self.opts['executor_opts']
-                )
-            if isinstance(executors, six.string_types):
-                executors = [executors]
+                    )
+                else:
+                    sys.stderr.write("\n")
+                sys.exit(-1)
+            metadata = self.opts.get("metadata")
+            if metadata is not None:
+                metadata = salt.utils.args.yamlify_arg(metadata)
             try:
-                for name in executors:
-                    fname = '{0}.execute'.format(name)
-                    if fname not in self.minion.executors:
-                        raise SaltInvocationError("Executor '{0}' is not available".format(name))
-                    ret['return'] = self.minion.executors[fname](self.opts, data, func, args, kwargs)
-                    if ret['return'] is not None:
-                        break
-            except TypeError as exc:
-                sys.stderr.write('\nPassed invalid arguments: {0}.\n\nUsage:\n'.format(exc))
-                salt.utils.stringutils.print_cli(func.__doc__)
+                sdata = {
+                    "fun": fun,
+                    "pid": os.getpid(),
+                    "jid": ret["jid"],
+                    "tgt": "salt-call",
+                }
+                if metadata is not None:
+                    sdata["metadata"] = metadata
+                args, kwargs = salt.minion.load_args_and_kwargs(
+                    self.minion.functions[fun],
+                    salt.utils.args.parse_input(
+                        self.opts["arg"], no_parse=self.opts.get("no_parse", [])
+                    ),
+                    data=sdata,
+                )
+                try:
+                    with salt.utils.files.fopen(proc_fn, "w+b") as fp_:
+                        fp_.write(self.serial.dumps(sdata))
+                except NameError:
+                    # Don't require msgpack with local
+                    pass
+                except OSError:
+                    sys.stderr.write(
+                        "Cannot write to process directory. "
+                        "Do you have permissions to "
+                        "write to {} ?\n".format(proc_fn)
+                    )
+                func = self.minion.functions[fun]
+                data = {"arg": args, "fun": fun}
+                data.update(kwargs)
+                executors = getattr(
+                    self.minion, "module_executors", []
+                ) or salt.utils.args.yamlify_arg(
+                    self.opts.get("module_executors", "[direct_call]")
+                )
+                if self.opts.get("executor_opts", None):
+                    data["executor_opts"] = salt.utils.args.yamlify_arg(
+                        self.opts["executor_opts"]
+                    )
+                if isinstance(executors, str):
+                    executors = [executors]
+                try:
+                    for name in executors:
+                        fname = "{}.execute".format(name)
+                        if fname not in self.minion.executors:
+                            raise SaltInvocationError(
+                                "Executor '{}' is not available".format(name)
+                            )
+                        ret["return"] = self.minion.executors[fname](
+                            self.opts, data, func, args, kwargs
+                        )
+                        if ret["return"] is not None:
+                            break
+                except TypeError as exc:
+                    sys.stderr.write(
+                        "\nPassed invalid arguments: {}.\n\nUsage:\n".format(exc)
+                    )
+                    salt.utils.stringutils.print_cli(func.__doc__)
+                    active_level = LOG_LEVELS.get(
+                        self.opts["log_level"].lower(), logging.ERROR
+                    )
+                    if active_level <= logging.DEBUG:
+                        trace = traceback.format_exc()
+                        sys.stderr.write(trace)
+                    sys.exit(salt.defaults.exitcodes.EX_GENERIC)
+                try:
+                    retcode = sys.modules[func.__module__].__context__.get("retcode", 0)
+                except AttributeError:
+                    retcode = salt.defaults.exitcodes.EX_GENERIC
+
+                if retcode == 0:
+                    # No nonzero retcode in __context__ dunder. Check if return
+                    # is a dictionary with a "result" or "success" key.
+                    try:
+                        func_result = all(
+                            ret["return"].get(x, True) for x in ("result", "success")
+                        )
+                    except Exception:  # pylint: disable=broad-except
+                        # return data is not a dict
+                        func_result = True
+                    if not func_result:
+                        retcode = salt.defaults.exitcodes.EX_GENERIC
+
+                ret["retcode"] = retcode
+            except (CommandExecutionError) as exc:
+                msg = "Error running '{0}': {1}\n"
                 active_level = LOG_LEVELS.get(
                     self.opts['log_level'].lower(), logging.ERROR)
                 if active_level <= logging.DEBUG:
-                    trace = traceback.format_exc()
-                    sys.stderr.write(trace)
+                    sys.stderr.write(traceback.format_exc())
+                sys.stderr.write(msg.format(fun, exc))
+                sys.exit(salt.defaults.exitcodes.EX_GENERIC)
+            except CommandNotFoundError as exc:
+                msg = "Command required for '{0}' not found: {1}\n"
+                sys.stderr.write(msg.format(fun, exc))
                 sys.exit(salt.defaults.exitcodes.EX_GENERIC)
             try:
-                retcode = sys.modules[
-                    func.__module__].__context__.get('retcode', 0)
-            except AttributeError:
-                retcode = salt.defaults.exitcodes.EX_GENERIC
+                os.remove(proc_fn)
+            except OSError:
+                pass
+            if hasattr(self.minion.functions[fun], "__outputter__"):
+                oput = self.minion.functions[fun].__outputter__
+                if isinstance(oput, str):
+                    ret["out"] = oput
+            is_local = (
+                self.opts["local"]
+                or self.opts.get("file_client", False) == "local"
+                or self.opts.get("master_type") == "disable"
+            )
+            returners = self.opts.get("return", "").split(",")
+            if (not is_local) or returners:
+                ret["id"] = self.opts["id"]
+                ret["fun"] = fun
+                ret["fun_args"] = self.opts["arg"]
+                if metadata is not None:
+                    ret["metadata"] = metadata
 
-            if retcode == 0:
-                # No nonzero retcode in __context__ dunder. Check if return
-                # is a dictionary with a "result" or "success" key.
+            for returner in returners:
+                if not returner:  # if we got an empty returner somehow, skip
+                    continue
                 try:
-                    func_result = all(ret['return'].get(x, True)
-                                      for x in ('result', 'success'))
+                    ret["success"] = True
+                    self.minion.returners["{}.returner".format(returner)](ret)
                 except Exception:  # pylint: disable=broad-except
-                    # return data is not a dict
-                    func_result = True
-                if not func_result:
-                    retcode = salt.defaults.exitcodes.EX_GENERIC
+                    pass
 
-            ret['retcode'] = retcode
-        except (CommandExecutionError) as exc:
-            msg = 'Error running \'{0}\': {1}\n'
-            active_level = LOG_LEVELS.get(
-                self.opts['log_level'].lower(), logging.ERROR)
-            if active_level <= logging.DEBUG:
-                sys.stderr.write(traceback.format_exc())
-            sys.stderr.write(msg.format(fun, exc))
-            sys.exit(salt.defaults.exitcodes.EX_GENERIC)
-        except CommandNotFoundError as exc:
-            msg = 'Command required for \'{0}\' not found: {1}\n'
-            sys.stderr.write(msg.format(fun, exc))
-            sys.exit(salt.defaults.exitcodes.EX_GENERIC)
-        try:
-            os.remove(proc_fn)
-        except (IOError, OSError):
-            pass
-        if hasattr(self.minion.functions[fun], '__outputter__'):
-            oput = self.minion.functions[fun].__outputter__
-            if isinstance(oput, six.string_types):
-                ret['out'] = oput
-        is_local = self.opts['local'] or self.opts.get(
-            'file_client', False) == 'local' or self.opts.get(
-            'master_type') == 'disable'
-        returners = self.opts.get('return', '').split(',')
-        if (not is_local) or returners:
-            ret['id'] = self.opts['id']
-            ret['fun'] = fun
-            ret['fun_args'] = self.opts['arg']
-            if metadata is not None:
-                ret['metadata'] = metadata
+            # return the job infos back up to the respective minion's master
+            if not is_local:
+                try:
+                    mret = ret.copy()
+                    mret["jid"] = "req"
+                    self.return_pub(mret)
+                except Exception:  # pylint: disable=broad-except
+                    pass
+            elif self.opts["cache_jobs"]:
+                # Local job cache has been enabled
+                salt.utils.minion.cache_jobs(self.opts, ret["jid"], ret)
 
-        for returner in returners:
-            if not returner:  # if we got an empty returner somehow, skip
-                continue
-            try:
-                ret['success'] = True
-                self.minion.returners['{0}.returner'.format(returner)](ret)
-            except Exception:  # pylint: disable=broad-except
-                pass
-
-        # return the job infos back up to the respective minion's master
-        if not is_local:
-            try:
-                mret = ret.copy()
-                mret['jid'] = 'req'
-                self.return_pub(mret)
-            except Exception:  # pylint: disable=broad-except
-                pass
-        elif self.opts['cache_jobs']:
-            # Local job cache has been enabled
-            salt.utils.minion.cache_jobs(self.opts, ret['jid'], ret)
-
-        return ret
+            return ret
+        finally:
+            salt.transport.zeromq.AsyncZeroMQReqChannel.force_close_all_instances()
 
 
 class ZeroMQCaller(BaseCaller):
