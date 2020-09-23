@@ -13,8 +13,6 @@ import logging
 import functools
 import threading
 import traceback
-import signal
-import functools
 from random import randint
 
 # Import salt libs
@@ -418,7 +416,7 @@ def salt_key():
         _install_signal_handlers(client)
         client.run()
     except Exception as err:  # pylint: disable=broad-except
-        sys.stderr.write("Error: {0}\n".format(err))
+        sys.stderr.write("Error: {}\n".format(err))
 
 
 def salt_cp():
@@ -438,11 +436,21 @@ def salt_call():
     salt minion to run.
     '''
     import salt.cli.call
-    if '' in sys.path:
-        sys.path.remove('')
-    client = salt.cli.call.SaltCall()
-    _install_signal_handlers(client)
-    client.run()
+
+    try:
+        from salt.transport import zeromq
+    except ImportError:
+        zeromq = None
+
+    try:
+        if "" in sys.path:
+            sys.path.remove("")
+        client = salt.cli.call.SaltCall()
+        _install_signal_handlers(client)
+        client.run()
+    finally:
+        if zeromq is not None:
+            zeromq.AsyncZeroMQReqChannel.force_close_all_instances()
 
 
 def salt_run():
