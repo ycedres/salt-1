@@ -40,8 +40,7 @@ from salt.transport.zeromq import AsyncReqMessageClientPool
 import salt.ext.tornado.ioloop
 
 # Import test support libs
-from saltfactories.utils.ports import get_unused_localhost_port
-from tests.support.helpers import flaky, not_runs_on, slowTest
+from tests.support.helpers import flaky, not_runs_on
 from tests.support.mixins import AdaptedConfigurationTestCaseMixin
 from tests.support.mock import MagicMock, call, patch
 from tests.support.runtests import RUNTIME_VARS
