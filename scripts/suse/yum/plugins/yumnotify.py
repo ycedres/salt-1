@@ -59,4 +59,4 @@ def posttrans_hook(conduit):
             with open(CK_PATH, "w") as ck_fh:
                 ck_fh.write(f"{_get_checksum()} {_get_mtime()}\n")
         except OSError as e:
-            print("Unable to save the cookie file: %s" % (e), file=sys.stderr)
+            sys.stderr.write("Unable to save the cookie file: %s\n" % (e))
