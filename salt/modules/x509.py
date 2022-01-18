@@ -50,13 +50,12 @@ try:
 
     HAS_M2 = True
 except ImportError:
-    HAS_M2 = False
+    M2Crypto = None
+
 try:
     import OpenSSL
-
-    HAS_OPENSSL = True
 except ImportError:
-    HAS_OPENSSL = False
+    OpenSSL = None
 
 __virtualname__ = "x509"
 
@@ -96,6 +95,10 @@ def __virtual__():
     """
     only load this module if m2crypto is available
     """
+    # salt.features appears to not be setup when invoked via peer publishing
+    if __opts__.get("features", {}).get("x509_v2", True):
+        return (False, "Superseded, using x509_v2")
+
     if HAS_M2:
         salt.utils.versions.warn_until(
             3009,
@@ -162,8 +165,8 @@ def _new_extension(name, value, critical=0, issuer=None, _pyfree=1):
         x509_ext_ptr = M2Crypto.m2.x509v3_ext_conf(None, ctx, name, value)
         lhash = None
     except AttributeError:
-        lhash = M2Crypto.m2.x509v3_lhash()
-        ctx = M2Crypto.m2.x509v3_set_conf_lhash(lhash)
+        lhash = M2Crypto.m2.x509v3_lhash()  # pylint: disable=no-member
+        ctx = M2Crypto.m2.x509v3_set_conf_lhash(lhash)  # pylint: disable=no-member
         # ctx not zeroed
         _fix_ctx(ctx, issuer)
         x509_ext_ptr = M2Crypto.m2.x509v3_ext_conf(lhash, ctx, name, value)
@@ -302,7 +305,7 @@ def _get_signing_policy(name):
         signing_policy = policies.get(name)
         if signing_policy:
             return signing_policy
-    return __salt__["config.get"]("x509_signing_policies", {}).get(name)
+    return __salt__["config.get"]("x509_signing_policies", {}).get(name) or {}
 
 
 def _pretty_hex(hex_str):
@@ -340,9 +343,11 @@ def _text_or_file(input_):
     """
     if _isfile(input_):
         with salt.utils.files.fopen(input_) as fp_:
-            return salt.utils.stringutils.to_str(fp_.read())
+            out = salt.utils.stringutils.to_str(fp_.read())
     else:
-        return salt.utils.stringutils.to_str(input_)
+        out = salt.utils.stringutils.to_str(input_)
+
+    return out
 
 
 def _parse_subject(subject):
@@ -361,7 +366,7 @@ def _parse_subject(subject):
                 ret_list.append((nid_num, nid_name, val))
                 nids.append(nid_num)
         except TypeError as err:
-            log.trace("Missing attribute '%s'. Error: %s", nid_name, err)
+            log.debug("Missing attribute '%s'. Error: %s", nid_name, err)
     for nid_num, nid_name, val in sorted(ret_list):
         ret[nid_name] = val
     return ret
@@ -559,8 +564,8 @@ def get_pem_entries(glob_path):
         if os.path.isfile(path):
             try:
                 ret[path] = get_pem_entry(text=path)
-            except ValueError:
-                pass
+            except ValueError as err:
+                log.debug("Unable to get PEM entries from %s: %s", path, err)
 
     return ret
 
@@ -638,8 +643,8 @@ def read_certificates(glob_path):
         if os.path.isfile(path):
             try:
                 ret[path] = read_certificate(certificate=path)
-            except ValueError:
-                pass
+            except ValueError as err:
+                log.debug("Unable to read certificate %s: %s", path, err)
 
     return ret
 
@@ -669,9 +674,8 @@ def read_csr(csr):
         "Subject": _parse_subject(csr.get_subject()),
         "Subject Hash": _dec2hex(csr.get_subject().as_hash()),
         "Public Key Hash": hashlib.sha1(csr.get_pubkey().get_modulus()).hexdigest(),
+        "X509v3 Extensions": _get_csr_extensions(csr),
     }
-
-    ret["X509v3 Extensions"] = _get_csr_extensions(csr)
 
     return ret
 
@@ -982,7 +986,7 @@ def create_crl(
     # pyOpenSSL Note due to current limitations in pyOpenSSL it is impossible
     # to specify a digest For signing the CRL. This will hopefully be fixed
     # soon: https://github.com/pyca/pyopenssl/pull/161
-    if not HAS_OPENSSL:
+    if OpenSSL is None:
         raise salt.exceptions.SaltInvocationError(
             "Could not load OpenSSL module, OpenSSL unavailable"
         )
@@ -1149,7 +1153,7 @@ def get_signing_policy(signing_policy_name):
             signing_policy["signing_cert"], "CERTIFICATE"
         )
     except KeyError:
-        pass
+        log.debug('Unable to get "certificate" PEM entry')
 
     return signing_policy
 
@@ -1784,7 +1788,8 @@ def create_csr(path=None, text=False, **kwargs):
         )
     )
 
-    for entry in sorted(subject.nid):
+    # pylint: disable=unused-variable
+    for entry, num in subject.nid.items():
         if entry in kwargs:
             setattr(subject, entry, kwargs[entry])
 
@@ -1820,7 +1825,6 @@ def create_csr(path=None, text=False, **kwargs):
         extstack.push(ext)
 
     csr.add_extensions(extstack)
-
     csr.sign(
         _get_private_key_obj(
             kwargs["private_key"], passphrase=kwargs["private_key_passphrase"]
@@ -1828,10 +1832,11 @@ def create_csr(path=None, text=False, **kwargs):
         kwargs["algorithm"],
     )
 
-    if path:
-        return write_pem(text=csr.as_pem(), path=path, pem_type="CERTIFICATE REQUEST")
-    else:
-        return csr.as_pem()
+    return (
+        write_pem(text=csr.as_pem(), path=path, pem_type="CERTIFICATE REQUEST")
+        if path
+        else csr.as_pem()
+    )
 
 
 def verify_private_key(private_key, public_key, passphrase=None):
@@ -1856,7 +1861,7 @@ def verify_private_key(private_key, public_key, passphrase=None):
         salt '*' x509.verify_private_key private_key=/etc/pki/myca.key \\
                 public_key=/etc/pki/myca.crt
     """
-    return bool(get_public_key(private_key, passphrase) == get_public_key(public_key))
+    return get_public_key(private_key, passphrase) == get_public_key(public_key)
 
 
 def verify_signature(
@@ -1912,7 +1917,10 @@ def verify_crl(crl, cert):
         salt '*' x509.verify_crl crl=/etc/pki/myca.crl cert=/etc/pki/myca.crt
     """
     if not salt.utils.path.which("openssl"):
-        raise salt.exceptions.SaltInvocationError("openssl binary not found in path")
+        raise salt.exceptions.SaltInvocationError(
+            'External command "openssl" not found'
+        )
+
     crltext = _text_or_file(crl)
     crltext = get_pem_entry(crltext, pem_type="X509 CRL")
     crltempfile = tempfile.NamedTemporaryFile(delete=True)
@@ -1972,8 +1980,9 @@ def expired(certificate):
                 ret["expired"] = True
             else:
                 ret["expired"] = False
-        except ValueError:
-            pass
+        except ValueError as err:
+            log.debug("Failed to get data of expired certificate: %s", err)
+            log.trace(err, exc_info=True)
 
     return ret
 
@@ -1996,6 +2005,7 @@ def will_expire(certificate, days):
 
         salt '*' x509.will_expire "/etc/pki/mycert.crt" days=30
     """
+    ts_pt = "%Y-%m-%d %H:%M:%S"
     ret = {}
 
     if os.path.isfile(certificate):
@@ -2009,14 +2019,11 @@ def will_expire(certificate, days):
             _expiration_date = cert.get_not_after().get_datetime()
 
             ret["cn"] = _parse_subject(cert.get_subject())["CN"]
-
-            if _expiration_date.strftime("%Y-%m-%d %H:%M:%S") <= _check_time.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ):
-                ret["will_expire"] = True
-            else:
-                ret["will_expire"] = False
-        except ValueError:
-            pass
+            ret["will_expire"] = _expiration_date.strftime(
+                ts_pt
+            ) <= _check_time.strftime(ts_pt)
+        except ValueError as err:
+            log.debug("Unable to return details of a sertificate expiration: %s", err)
+            log.trace(err, exc_info=True)
 
     return ret
