@@ -191,6 +191,7 @@ execution modules
     salt_version
     saltcheck
     saltcloudmod
+    saltsupport
     saltutil
     schedule
     scp_mod

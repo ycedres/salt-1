@@ -95,6 +95,7 @@ state modules
     reg
     salt_proxy
     saltmod
+    saltsupport
     saltutil
     schedule
     selinux

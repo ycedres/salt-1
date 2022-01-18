@@ -210,6 +210,7 @@ def get_entry_points(dist=None):
             "salt-minion = salt.scripts:salt_minion",
             "salt-run = salt.scripts:salt_run",
             "salt-ssh = salt.scripts:salt_ssh",
+            "salt-support = salt.scripts:salt_support",
             "salt-syndic = salt.scripts:salt_syndic",
             "spm = salt.scripts:salt_spm",
             "salt-proxy = salt.scripts:salt_proxy",
@@ -256,6 +257,7 @@ def get_scripts(dist=None):
             "scripts/salt-proxy",
             "scripts/salt-run",
             "scripts/salt-ssh",
+            "scripts/salt-support",
             "scripts/salt-syndic",
             "scripts/spm",
         ]
