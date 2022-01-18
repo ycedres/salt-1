@@ -1111,6 +1111,9 @@ VALID_OPTS = immutabletypes.freeze(
         # when enabled, salt daemons emit counters, histograms and
         # observable gauges via OTLP push or a Prometheus pull endpoint.
         "metrics": dict,
+        # Use Adler32 hashing algorithm for server_id (default False until Sodium, "adler32" after)
+        # Possible values are: False, adler32, crc32
+        "server_id_use_crc": (bool, str),
     }
 )
 
@@ -1430,6 +1433,7 @@ DEFAULT_MINION_OPTS = immutabletypes.freeze(
         "global_state_conditions": None,
         "reactor_niceness": None,
         "fips_mode": False,
+        "server_id_use_crc": False,
         "use_os_truststore": False,
         "features": {},
         "encryption_algorithm": "OAEP-SHA1",
