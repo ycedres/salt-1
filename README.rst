@@ -27,6 +27,7 @@
 *Salt is the world's fastest, most intelligent and scalable automation*
 *engine.*
 
+
 About Salt
 ==========
 Built on Python, Salt is an event-driven automation tool and framework to
