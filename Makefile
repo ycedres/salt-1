@@ -21,6 +21,8 @@ SALT_REPO ?= https://github.com/openSUSE/salt
 SALT_BRANCH ?= openSUSE/release/3006.0
 OBS_API ?= https://api.suse.de
 GIT_PUSH ?= 1
+GITEA_OWNER ?= salt
+GITEA_REPO ?= salt
 
 ## Internal Variables
 SHELL=/bin/bash
@@ -137,6 +139,45 @@ factory-submit:
 		osc ci -m "Update to openSUSE/salt@$$(cd $(CURDIR)/salt && git rev-parse --short HEAD)" && \
 		osc sr openSUSE:Factory -m "Update Salt to openSUSE/salt@$$(cd $(CURDIR)/salt && git rev-parse --short HEAD)"
 	@echo "Submit request created. Check status at https://build.opensuse.org/package/show/systemsmanagement:saltstack/salt"
+
+# Create PRs in Gitea for branches (for branches with PR support)
+.PHONY: update-pr
+update-pr:
+	@echo "Creating PRs for branches:$(patsubst %,'%', $(BRANCHES))"
+	@echo Cache salt from $(SALT_REPO)#$(SALT_BRANCH)
+	@git clone --quiet --depth 1 --branch $(SALT_BRANCH) $(SALT_REPO) $(TMPDIR)/salt
+	@$(foreach branch,$(BRANCHES),$\
+		$(MAKE) $(sub_make_flags) update-pr-impl BRANCH=$(branch);)
+	@rm -rf $(TMPDIR)
+
+.PHONY: update-pr-impl
+update-pr-impl:
+	@echo "Creating PR for branch: $(BRANCH)"
+	@git fetch origin $(BRANCH):$(BRANCH) 2>/dev/null || true
+	@git switch --quiet $(BRANCH)
+	@git pull --quiet origin $(BRANCH)
+	@UPDATE_BRANCH=update-$(BRANCH)-$(shell date +%Y%m%d-%H%M%S) && \
+		COMMIT_HASH=$(shell cd $(TMPDIR)/salt && git rev-parse --short HEAD) && \
+		git switch --quiet --force-create $$UPDATE_BRANCH && \
+		cp -r $(TMPDIR)/salt . && \
+		rm -rf salt/.git* && \
+		cp salt/pkg/suse/{$(pkg_suse_files)} . && \
+		cp salt/pkg/suse/changelogs/$(BRANCH).changes salt.changes && \
+		$(SHELL) -c 'TMPDIR=$(TMPDIR); $(git_maybe_commit)' && \
+		if git rev-list --count HEAD^..HEAD | grep -q "^1"; then \
+			git push origin $$UPDATE_BRANCH && \
+			tea pr create \
+				--head $$UPDATE_BRANCH \
+				--base $(BRANCH) \
+				--title "Update $(BRANCH) to openSUSE/salt@$$COMMIT_HASH" \
+				--description "Automated update from GitHub openSUSE/salt repository.$${MSG:+\n\n$$MSG}" \
+				--repo $(GITEA_OWNER)/$(GITEA_REPO) && \
+			echo "PR created for $(BRANCH)"; \
+		else \
+			echo "No changes for $(BRANCH), skipping PR creation"; \
+			git switch --quiet $(BRANCH); \
+			git branch -D $$UPDATE_BRANCH 2>/dev/null || true; \
+		fi
 
 html.tar.bz2:
 	sh update-documentation.sh salt-maintainers@suse.de --without-sphinx
