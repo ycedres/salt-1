@@ -166,13 +166,16 @@ update-pr-impl:
 		$(SHELL) -c 'TMPDIR=$(TMPDIR); $(git_maybe_commit)' && \
 		if git rev-list --count HEAD^..HEAD | grep -q "^1"; then \
 			git push origin $$UPDATE_BRANCH && \
-			tea pr create \
-				--head $$UPDATE_BRANCH \
-				--base $(BRANCH) \
-				--title "Update $(BRANCH) to openSUSE/salt@$$COMMIT_HASH" \
-				--description "Automated update from GitHub openSUSE/salt repository.$${MSG:+\n\n$$MSG}" \
-				--repo $(GITEA_OWNER)/$(GITEA_REPO) && \
-			echo "PR created for $(BRANCH)"; \
+			PR_TITLE="Update $(BRANCH) to openSUSE/salt@$$COMMIT_HASH" && \
+			PR_BODY="Automated update from GitHub openSUSE/salt repository." && \
+			curl -f -X POST \
+				-H "Authorization: token $(GITEA_TOKEN)" \
+				-H "Content-Type: application/json" \
+				-H "Accept: application/json" \
+				-d "{\"head\":\"$$UPDATE_BRANCH\",\"base\":\"$(BRANCH)\",\"title\":\"$$PR_TITLE\",\"body\":\"$$PR_BODY\"}" \
+				https://src.opensuse.org/api/v1/repos/$(GITEA_OWNER)/$(GITEA_REPO)/pulls && \
+			echo "" && \
+			echo "✓ PR created for $(BRANCH)"; \
 		else \
 			echo "No changes for $(BRANCH), skipping PR creation"; \
 			git switch --quiet $(BRANCH); \
