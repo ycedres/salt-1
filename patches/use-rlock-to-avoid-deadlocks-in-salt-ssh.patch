@@ -1,0 +1,26 @@
+From fe1f3a84eb341a59300c66c6f5cd55dd9d9c72d4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Pablo=20Su=C3=A1rez=20Hern=C3=A1ndez?=
+ <psuarezhernandez@suse.com>
+Date: Wed, 4 Jan 2023 13:11:50 +0000
+Subject: [PATCH] Use RLock to avoid deadlocks in salt-ssh
+
+---
+ salt/loader/__init__.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/salt/loader/__init__.py b/salt/loader/__init__.py
+index bbe42698392..b41cc64b8e6 100644
+--- a/salt/loader/__init__.py
++++ b/salt/loader/__init__.py
+@@ -82,7 +82,7 @@ SALT_INTERNAL_LOADERS_PATHS = (
+     str(SALT_BASE_PATH / "wheel"),
+ )
+ 
+-LOAD_LOCK = threading.Lock()
++LOAD_LOCK = threading.RLock()
+ 
+ 
+ def LazyLoader(*args, **kwargs):
+-- 
+2.54.0
+
