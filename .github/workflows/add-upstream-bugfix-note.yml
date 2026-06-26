@@ -1,0 +1,209 @@
+name: Upstream Bug-fix Notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'The SHA of the commit in openSUSE/salt to add the note to (default: HEAD)'
+        required: false
+        default: 'HEAD'
+      upstream_ref:
+        description: 'The upstream Salt PR number or full link (e.g., 66240 or https://github.com/saltstack/salt/pull/66240)'
+        required: true
+  push:
+    branches:
+      - openSUSE/release/3006.0
+
+concurrency:
+  group: upstream-notes-push
+  cancel-in-progress: false
+
+jobs:
+  manage-notes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch existing notes
+        run: |
+          git fetch origin refs/notes/*:refs/notes/* || true
+
+      - name: Process Manual Input
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          REF="${{ github.event.inputs.upstream_ref }}"
+          if [[ "$REF" =~ ^[0-9]+$ ]]; then
+            URL="https://github.com/saltstack/salt/pull/$REF"
+          else
+            URL="$REF"
+            if [[ "$URL" =~ ^http:// ]]; then
+              URL="https://${URL#http://}"
+            elif [[ ! "$URL" =~ ^https:// ]]; then
+              URL="https://$URL"
+            fi
+
+            if [[ ! "$URL" =~ ^https://github\.com/saltstack/salt/pull/[0-9]+$ ]]; then
+              echo "Error: upstream_ref must be a PR number or a valid saltstack/salt PR URL."
+              echo "Got: $URL"
+              echo "Expected format: https://github.com/saltstack/salt/pull/<number>"
+              exit 1
+            fi
+          fi
+
+          SHA="${{ github.event.inputs.commit_sha }}"
+
+          # actions/checkout@v4 only fetches the triggered ref's history
+          # In workflow_dispatch mode, if a user triggers from 'master' but
+          # provides a commit_sha from 'openSUSE/release/3006.0', that commit won't be available
+          # and git rev-parse will fail.
+          # Try to resolve first, and if it fails, fetch all branches to make the
+          # commit available.
+          if ! RESOLVED_SHA=$(git rev-parse --verify "$SHA" 2>/dev/null); then
+            echo "Commit $SHA not found locally. Attempting to fetch all branches..."
+            git fetch --all
+
+            if ! RESOLVED_SHA=$(git rev-parse --verify "$SHA" 2>/dev/null); then
+              echo "Error: Commit $SHA not found in repository after fetching all branches."
+              echo "Please verify the commit SHA exists and is pushed to the remote."
+              exit 1
+            fi
+          fi
+
+          echo "Resolved commit: $RESOLVED_SHA"
+
+          # Use unique random delimiters to prevent env-file injection.
+          # A fixed delimiter (EOF) is vulnerable if the value contains a line equal to "EOF",
+          # which would close the heredoc early and allow variable injection.
+          # Generate random delimiters per write to make collision practically impossible.
+          DELIMITER="ghadelimiter_${RANDOM}_${RANDOM}_${RANDOM}"
+          {
+            echo "URL<<${DELIMITER}"
+            echo "$URL"
+            echo "${DELIMITER}"
+            echo "COMMITS<<${DELIMITER}"
+            echo "$RESOLVED_SHA"
+            echo "${DELIMITER}"
+          } >> "$GITHUB_ENV"
+
+      - name: Process Merged PR
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # We trigger on 'push' instead of 'pull_request' because:
+          # - pull_request event: GITHUB_TOKEN is read-only for PRs from forks (security measure)
+          # - push event: GITHUB_TOKEN has write permissions since code is already merged into trusted branch
+          # This ensures git notes can be pushed regardless of whether the PR originated from a fork.
+
+          PUSH_SHA="${{ github.event.after }}"
+
+          # Use the commits→pulls API for reliable, deterministic PR resolution.
+          # gh pr list --search uses GitHub's search index which may have indexing delays,
+          # while this API endpoint provides a direct lookup for commits associated with PRs.
+          PR_NUMBER=$(gh api "repos/${{ github.repository }}/commits/$PUSH_SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null)][0].number // empty' || echo "")
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No merged PR found for commit $PUSH_SHA. Skipping notes."
+            exit 0
+          fi
+
+          echo "Found merged PR #$PR_NUMBER"
+
+          BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body')
+
+          if [[ "$BODY" =~ (https?://)?github\.com/saltstack/salt/pull/([0-9]+) ]]; then
+            URL="${BASH_REMATCH[0]}"
+            if [[ "$URL" =~ ^http:// ]]; then
+              URL="https://${URL#http://}"
+            elif [[ ! "$URL" =~ ^https:// ]]; then
+              URL="https://$URL"
+            fi
+
+            # Since the repository only uses squash-and-merge, exactly one new commit ($PUSH_SHA)
+            # is added to the base branch representing the merged PR.
+            COMMITS="$PUSH_SHA"
+
+            DELIMITER="ghadelimiter_${RANDOM}_${RANDOM}_${RANDOM}"
+            {
+              echo "URL<<${DELIMITER}"
+              echo "$URL"
+              echo "${DELIMITER}"
+              echo "COMMITS<<${DELIMITER}"
+              echo "$COMMITS"
+              echo "${DELIMITER}"
+            } >> "$GITHUB_ENV"
+          else
+            echo "No upstream PR link found in PR #$PR_NUMBER description. Skipping notes."
+            exit 0
+          fi
+
+      - name: Add Notes
+        if: env.URL != ''
+        run: |
+          NOTES_ADDED=false
+
+          for SHA in $COMMITS; do
+            echo "Adding note to $SHA: Upstream PR: $URL"
+
+            if ! git cat-file -e "$SHA" 2>/dev/null; then
+              echo "Warning: Commit $SHA not found. Skipping."
+              continue
+            fi
+
+            EXISTING_NOTE=$(git notes show "$SHA" 2>/dev/null || true)
+            if [[ "$EXISTING_NOTE" == *"$URL"* ]]; then
+              echo "Note already contains this URL for $SHA. Skipping."
+            else
+              git notes append -m "Upstream PR: $URL" "$SHA"
+              NOTES_ADDED=true
+            fi
+          done
+
+          echo "NOTES_ADDED=$NOTES_ADDED" >> "$GITHUB_ENV"
+
+      - name: Push notes
+        if: env.URL != '' && env.NOTES_ADDED == 'true'
+        run: |
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if git push origin refs/notes/commits; then
+              echo "Successfully pushed notes"
+              exit 0
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Push failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+                # When concurrent workflows race:
+                #   1. Workflow A adds note and pushes successfully
+                #   2. Workflow B adds note and push fails (non-fast-forward)
+                #   3. If we fetch with refs/notes/*:refs/notes/*, we overwrite our local.
+                #      ref with remote, discarding the note we just added in step 2.
+                #   4. Next push succeeds but loses note in workflow B.
+                # Instead, fetch without updating local ref, then merge both sets of notes.
+                git fetch origin refs/notes/commits
+                git notes merge -s cat_sort_uniq FETCH_HEAD || {
+                  echo "Notes merge failed"
+                  exit 1
+                }
+                sleep 2
+              else
+                echo "Failed to push notes after $MAX_RETRIES attempts"
+                exit 1
+              fi
+            fi
+          done
+
