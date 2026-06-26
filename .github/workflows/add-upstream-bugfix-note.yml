@@ -8,7 +8,7 @@ on:
         required: false
         default: 'HEAD'
       upstream_ref:
-        description: 'The upstream Salt PR number or full link (e.g., 66240 or https://github.com/saltstack/salt/pull/66240)'
+        description: 'The upstream Salt PR number or full link (e.g., 66240 or https://github.com/ycedres/salt/pull/66240)'
         required: true
   push:
     branches:
@@ -44,7 +44,7 @@ jobs:
         run: |
           REF="${{ github.event.inputs.upstream_ref }}"
           if [[ "$REF" =~ ^[0-9]+$ ]]; then
-            URL="https://github.com/saltstack/salt/pull/$REF"
+            URL="https://github.com/ycedres/salt/pull/$REF"
           else
             URL="$REF"
             if [[ "$URL" =~ ^http:// ]]; then
@@ -53,10 +53,10 @@ jobs:
               URL="https://$URL"
             fi
 
-            if [[ ! "$URL" =~ ^https://github\.com/saltstack/salt/pull/[0-9]+$ ]]; then
+            if [[ ! "$URL" =~ ^https://github\.com/ycedres/salt/pull/[0-9]+$ ]]; then
               echo "Error: upstream_ref must be a PR number or a valid saltstack/salt PR URL."
               echo "Got: $URL"
-              echo "Expected format: https://github.com/saltstack/salt/pull/<number>"
+              echo "Expected format: https://github.com/ycedres/salt/pull/<number>"
               exit 1
             fi
           fi
@@ -123,7 +123,7 @@ jobs:
 
           BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body')
 
-          if [[ "$BODY" =~ (https?://)?github\.com/saltstack/salt/pull/([0-9]+) ]]; then
+          if [[ "$BODY" =~ (https?://)?github\.com/ycedres/salt/pull/([0-9]+) ]]; then
             URL="${BASH_REMATCH[0]}"
             if [[ "$URL" =~ ^http:// ]]; then
               URL="https://${URL#http://}"
