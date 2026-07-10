@@ -72,8 +72,9 @@ jobs:
                 exit 1
               fi
             fi
-
-            URLS+=("$url")
+            if [[ " ${URLS[*]} " != *" ${url} "* ]]; then
+              URLS+=("$url")
+            fi
           done
 
           SHA="${{ github.event.inputs.commit_sha }}"
@@ -149,7 +150,9 @@ jobs:
               elif [[ ! "$url" =~ ^https:// ]]; then
                 url="https://$url"
               fi
-              URLS+=("$url")
+              if [[ " ${URLS[*]} " != *" ${url} "* ]]; then
+                URLS+=("$url")
+              fi
             fi
           done < <(echo "$BODY" | sed '/!ignore.*github\.com\/saltstack\/salt\//d' | grep -oE '(https?://)?github\.com/saltstack/salt/(pull/[0-9]+|commit/[a-f0-9]+)' || true)
 
@@ -197,7 +200,7 @@ jobs:
                 continue
               fi
 
-              if [[ "$EXISTING_NOTE" == *"$url"* ]]; then
+              if echo "$EXISTING_NOTE" | grep -qFw "$url"; then
                 echo "Note already contains $url for $SHA. Skipping."
               else
                 URLS_TO_ADD+=("$url")
